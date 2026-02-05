@@ -439,3 +439,73 @@ Ready to proceed with Story 3.4: Implement GQA (Group-Query Attention)
 - Story 3.4 can be marked as complete
 - Next real work: Story 3.5: Implement MLP block
 
+---
+
+## Phase 1: Feature 3 - Model Components (Story 3.6)
+
+### Date: February 5, 2026
+
+### Completed Stories:
+
+**Story 3.6: Implement Transformer Block**
+- Created TransformerBlock class in NanoChat.Core/Model/TransformerBlock.cs
+- Implements standard transformer architecture with pre-normalization
+- Combines Attention and MLP sub-layers with residual connections
+- Supports per-layer residual scaling via `residLambda` parameter
+- Supports ResFormer-style residuals via `x0Lambda` parameter
+- Optional sliding window attention and GQA support
+
+### Technical Implementation:
+
+**Class Structure:**
+- Inherits from TorchSharp's Module<Tensor, long, Tensor?, Tensor>
+- Pre-normalization: RMSNorm applied before each sub-layer
+- Attention sub-layer: Multi-head causal self-attention with optional GQA
+- MLP sub-layer: Feed-forward network with ReLU² activation
+- Residual connections with configurable scaling factors
+
+**Architecture:**
+```
+x1 = x + residLambda * attention(norm(x)) + x0Lambda * x0
+x2 = x1 + residLambda * mlp(norm(x1)) + x0Lambda * x0
+```
+
+**Key Features:**
+- Pre-normalization architecture (norm before sub-layer)
+- Residual connection scaling via `residLambda` (default: 1.0)
+- ResFormer-style residuals via `x0Lambda` (default: 0.0)
+- Flexible configuration: GQA, sliding window, custom hidden dim
+- Proper resource disposal and module registration
+- Full integration with existing Attention and MLP components
+
+### Test Results:
+- Created comprehensive test suite with 15 tests:
+  - Valid parameter initialization
+  - Shape verification (simple input, GQA, sliding window)
+  - Custom hidden dimension configuration
+  - Residual lambda scaling behavior
+  - ResFormer x0_lambda residual application
+  - x0=null handling (ignores x0_lambda)
+  - Zero input handling
+  - Single token and large batch processing
+  - Different inputs produce different outputs
+  - Repeated calls produce same output (deterministic)
+  - GPT-style configuration (768 dim, 12 heads)
+  - Resource disposal
+- All 64 tests pass (10 tokenizer + 6 RMSNorm + 9 RoPE + 13 Attention + 11 MLP + 15 TransformerBlock)
+- Build completes with 0 warnings
+
+### Files Created:
+- src/NanoChat.Core/Model/TransformerBlock.cs
+- tests/NanoChat.Core.Tests/TransformerBlockTests.cs
+
+### Updated:
+- docs/plan.md (marked Story 3.6 as complete)
+
+### Next Steps:
+
+Ready to proceed with Story 3.7: Implement Value Embeddings
+- ResFormer-style alternating value embeddings
+- Gated value embeddings for specific layers
+- Integration with transformer blocks
+
