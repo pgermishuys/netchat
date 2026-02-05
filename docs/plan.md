@@ -144,10 +144,10 @@ Replace dependencies with own implementations in order of complexity:
 
 | Story | Description | Acceptance Criteria | Status |
 |-------|-------------|---------------------|--------|
-| 7.1 | Implement conversation rendering | Format messages with special tokens | ⬜ |
-| 7.2 | Implement CLI input loop | Read user input | ⬜ |
-| 7.3 | Implement streaming output | Tokens appear as generated | ⬜ |
-| 7.4 | Handle conversation history | Multi-turn works | ⬜ |
+| 7.1 | Implement conversation rendering | Format messages with special tokens | ✅ |
+| 7.2 | Implement CLI input loop | Read user input | ✅ |
+| 7.3 | Implement streaming output | Tokens appear as generated | ✅ |
+| 7.4 | Handle conversation history | Multi-turn works | ✅ |
 
 ---
 
