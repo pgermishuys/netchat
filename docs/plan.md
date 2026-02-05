@@ -102,11 +102,11 @@ Replace dependencies with own implementations in order of complexity:
 
 | Story | Description | Acceptance Criteria | Status |
 |-------|-------------|---------------------|--------|
-| 4.1 | Implement GPTConfig | Dataclass with all hyperparams | ⬜ |
-| 4.2 | Implement GPT model shell | Embeddings, blocks, lm_head | ⬜ |
-| 4.3 | Implement forward pass | Input tokens → logits | ⬜ |
-| 4.4 | Add softcap to logits | `15 * tanh(logits / 15)` | ⬜ |
-| 4.5 | Add sliding window support | Per-layer window sizes | ⬜ |
+| 4.1 | Implement GPTConfig | Dataclass with all hyperparams | ✅ |
+| 4.2 | Implement GPT model shell | Embeddings, blocks, lm_head | ✅ |
+| 4.3 | Implement forward pass | Input tokens → logits | ✅ |
+| 4.4 | Add softcap to logits | `15 * tanh(logits / 15)` | ✅ |
+| 4.5 | Add sliding window support | Per-layer window sizes | ✅ |
 
 ---
 
