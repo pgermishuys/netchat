@@ -1,0 +1,69 @@
+# NanoChat .NET - Progress Log
+
+## Phase 1: Project Foundation - COMPLETE ✅
+
+### Date: February 5, 2026
+
+### Completed Stories:
+
+**Story 1.1: Create solution and project structure**
+- Created NanoChat.sln solution file
+- Created NanoChat.Core class library (src/NanoChat.Core)
+- Created NanoChat.CLI console application (src/NanoChat.CLI)
+- All projects target .NET 9.0 (LTS)
+- Solution builds successfully with no warnings
+
+**Story 1.2: Add TorchSharp-cpu dependency**
+- Added TorchSharp-cpu v0.105.2 to Core and CLI projects
+- Created TensorExample class with tensor creation and matmul tests
+- CLI application successfully creates tensors and runs matrix multiplication
+- Verified TorchSharp integration works correctly
+
+**Story 1.3: Add test project**
+- Created NanoChat.Core.Tests xUnit test project (tests/NanoChat.Core.Tests)
+- Added tests for TensorExample (CanCreateTensor, CanRunMatmul)
+- All tests pass successfully
+- Test project added TorchSharp-cpu reference for native library access
+
+### Technical Notes:
+
+**Framework:**
+- Using .NET 9.0 (LTS) instead of .NET 10 for better library compatibility
+- TorchSharp-cpu v0.105.2 with libtorch 2.7.1
+
+**Dependencies:**
+- TorchSharp-cpu (includes native libtorch libraries for CPU)
+- xUnit for testing
+
+**Known Requirements:**
+- macOS users need libomp installed: `brew install libomp`
+- Native libraries are automatically copied to output directory
+- All builds complete with 0 warnings
+- All tests pass (2 passing)
+
+### Build & Test Commands:
+
+```bash
+# Build
+dotnet build NanoChat.sln
+
+# Run CLI
+dotnet run --project src/NanoChat.CLI/NanoChat.CLI.csproj
+
+# Run Tests
+dotnet test NanoChat.sln
+```
+
+### Next Steps:
+
+Ready to proceed with Phase 1, Feature 2: Tokenizer
+- Story 2.1: Create tokenizer interface
+- Story 2.2: Implement tiktoken-based tokenizer
+- Story 2.3: Add special token support
+- Story 2.4: Load nanochat tokenizer from disk
+- Story 2.5: Test against Python implementation
+
+### Git Commit:
+
+Commit: 35dd12e
+Message: "feat: complete Phase 1 - project foundation with TorchSharp integration"
