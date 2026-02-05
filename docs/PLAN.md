@@ -60,9 +60,9 @@ Replace dependencies with own implementations in order of complexity:
 
 | Story | Description | Acceptance Criteria | Status |
 |-------|-------------|---------------------|--------|
-| 1.1 | Create solution and project structure | `dotnet build` succeeds | ⬜ |
-| 1.2 | Add TorchSharp-cpu dependency | Can create tensor, run matmul | ⬜ |
-| 1.3 | Add test project | `dotnet test` runs | ⬜ |
+| 1.1 | Create solution and project structure | `dotnet build` succeeds | ✅ |
+| 1.2 | Add TorchSharp-cpu dependency | Can create tensor, run matmul | ✅ |
+| 1.3 | Add test project | `dotnet test` runs | ✅ |
 
 ---
 
