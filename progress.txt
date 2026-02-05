@@ -239,3 +239,62 @@ Ready to proceed with Story 3.2: Implement Rotary Embeddings (RoPE)
 Commit: 45b8d43
 Message: "feat: implement RMSNorm layer normalization (Story 3.1)"
 
+---
+
+## Phase 1: Feature 3 - Model Components (Story 3.2)
+
+### Date: February 5, 2026
+
+### Completed Stories:
+
+**Story 3.2: Implement Rotary Embeddings (RoPE)**
+- Created RotaryEmbedding class in NanoChat.Core/Model/RotaryEmbedding.cs
+- Implements Rotary Position Embedding for encoding position information
+- Precomputes cos/sin rotation matrices for all positions
+- Applies rotation to Q and K tensors in attention
+- Base frequency: 10000 (configurable)
+
+### Technical Implementation:
+
+**Class Structure:**
+- Inherits from TorchSharp's Module<Tensor, long, Tensor>
+- Precomputes inverse frequencies: 1 / (base^(2i/dim)) for i in [0, dim/2)
+- Caches cos and sin values for maximum sequence length
+- Applies rotary transformation: [x1*cos - x2*sin, x2*cos + x1*sin]
+
+**Key Features:**
+- Efficient precomputation of rotation matrices
+- Position-dependent rotations preserve relative position information
+- Supports arbitrary sequence lengths (up to max)
+- Rotation preserves vector norms (rotation is an orthogonal transform)
+- Configurable base frequency for different frequency patterns
+
+### Test Results:
+- Created comprehensive test suite with 9 tests:
+  - Constructor initialization verification
+  - Shape preservation after rotation
+  - Norm preservation (rotation maintains magnitude)
+  - Different positions produce different rotations
+  - Multiple sequence lengths handling
+  - Rotation formula verification
+  - Expected rotation behavior across positions
+  - Dimension splitting correctness
+  - Base parameter effect on frequency
+- All 25 tests pass (10 tokenizer + 6 RMSNorm + 9 RoPE)
+- Build completes with 0 warnings
+
+### Files Created:
+- src/NanoChat.Core/Model/RotaryEmbedding.cs
+- tests/NanoChat.Core.Tests/RotaryEmbeddingTests.cs
+
+### Updated:
+- docs/plan.md (marked Story 3.2 as complete)
+
+### Next Steps:
+
+Ready to proceed with Story 3.3: Implement Multi-Head Attention
+- Causal self-attention mechanism
+- Q, K, V projections
+- Scaled dot-product attention
+- Softmax and attention weights
+
