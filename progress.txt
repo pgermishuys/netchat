@@ -236,10 +236,77 @@ Ready to proceed with Story 3.2: Implement Rotary Embeddings (RoPE)
 
 ### Git Commit:
 
-Commit: 45b8d43
-Message: "feat: implement RMSNorm layer normalization (Story 3.1)"
+Commit: a658d36
+Message: "feat: implement Multi-Head Attention with GQA support (Story 3.3)"
 
 ---
+
+## Phase 1: Feature 3 - Model Components (Story 3.5)
+
+### Date: February 5, 2026
+
+### Completed Stories:
+
+**Story 3.5: Implement MLP block**
+- Created MLP class in NanoChat.Core/Model/MLP.cs
+- Implements two-layer feedforward network with ReLU² activation
+- ReLU² activation: relu(x)² - apply ReLU then square the result
+- Configurable hidden dimension (defaults to 4x embedding dimension)
+- No bias terms in linear layers (matches nanochat spec)
+
+### Technical Implementation:
+
+**Class Structure:**
+- Inherits from TorchSharp's Module<Tensor, Tensor>
+- Two linear layers: nEmbd -> hiddenDim -> nEmbd
+- ReLU² activation between layers
+- No learnable bias parameters
+- Proper resource disposal
+
+**Key Features:**
+- ReLU² activation as specified in nanochat (relu then square)
+- Configurable hidden dimension with sensible default (4x embedding)
+- Efficient tensor operations using TorchSharp functional API
+- Supports arbitrary batch sizes and sequence lengths
+- Memory-efficient with no unnecessary intermediate tensors
+
+### Test Results:
+- Created comprehensive test suite with 11 tests:
+  - Default hidden dimension (4x embedding)
+  - Custom hidden dimension
+  - Simple input shape verification
+  - ReLU² activation behavior
+  - Zero input handling
+  - Batched input processing
+  - Different inputs produce different outputs
+  - Repeated calls produce same output (determinism)
+  - ReLU² correctness verification
+  - Resource disposal
+  - Large embedding dimensions (GPT-2 style: 768 -> 3072)
+- All 49 tests pass (10 tokenizer + 6 RMSNorm + 9 RoPE + 13 Attention + 11 MLP)
+- Build completes with 0 warnings
+
+### Files Created:
+- src/NanoChat.Core/Model/MLP.cs
+- tests/NanoChat.Core.Tests/MLPTests.cs
+
+### Updated:
+- docs/plan.md (marked Story 3.5 as complete)
+
+### Next Steps:
+
+Ready to proceed with Story 3.6: Implement Transformer Block
+- Combine Attention + MLP with residual connections
+- Add layer-wise residual lambdas
+- Integrate RMSNorm for pre-normalization
+
+### Git Commit:
+
+Commit: 6ffe8a0
+Message: "feat: implement MLP block with ReLU² activation (Story 3.5)"
+
+---
+
 
 ## Phase 1: Feature 3 - Model Components (Story 3.2)
 
