@@ -44,6 +44,7 @@ public class TransformerBlock : Module<Tensor, long, Tensor?, Tensor>
     /// <param name="x0Lambda">Initial input (x0) scaling factor for ResFormer-style residuals</param>
     /// <param name="maxSeqLen">Maximum sequence length for RoPE</param>
     /// <param name="ropeBase">Base for RoPE frequency computation</param>
+    /// <param name="useValueEmbedding">Whether to use ResFormer-style value embeddings in this layer</param>
     /// <param name="name">Module name</param>
     public TransformerBlock(
         int nEmbd,
@@ -55,6 +56,7 @@ public class TransformerBlock : Module<Tensor, long, Tensor?, Tensor>
         float x0Lambda = 0.0f,
         int maxSeqLen = 2048,
         double ropeBase = 10000.0,
+        bool useValueEmbedding = false,
         string? name = null)
         : base(name ?? "TransformerBlock")
     {
@@ -71,7 +73,8 @@ public class TransformerBlock : Module<Tensor, long, Tensor?, Tensor>
             nKvHead: nKvHead,
             windowSize: windowSize,
             maxSeqLen: maxSeqLen,
-            ropeBase: ropeBase);
+            ropeBase: ropeBase,
+            useValueEmbedding: useValueEmbedding);
 
         // Pre-normalization for MLP
         _mlpNorm = new RMSNorm();

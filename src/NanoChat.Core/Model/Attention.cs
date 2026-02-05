@@ -31,6 +31,7 @@ public class Attention : Module<Tensor, long, Tensor>
     private readonly RMSNorm _qNorm;
     private readonly RMSNorm _kNorm;
     private readonly RotaryEmbedding _rope;
+    private readonly ValueEmbedding? _valueEmbedding;
 
     /// <summary>
     /// Initialize Multi-Head Attention layer
@@ -41,6 +42,7 @@ public class Attention : Module<Tensor, long, Tensor>
     /// <param name="windowSize">Sliding window size for attention. If null, use full attention</param>
     /// <param name="maxSeqLen">Maximum sequence length for RoPE</param>
     /// <param name="ropeBase">Base for RoPE frequency computation</param>
+    /// <param name="useValueEmbedding">Whether to use ResFormer-style value embeddings</param>
     /// <param name="name">Module name</param>
     public Attention(
         int nEmbd, 
@@ -49,6 +51,7 @@ public class Attention : Module<Tensor, long, Tensor>
         int? windowSize = null,
         int maxSeqLen = 2048,
         double ropeBase = 10000.0,
+        bool useValueEmbedding = false,
         string? name = null) 
         : base(name ?? "Attention")
     {
@@ -87,6 +90,12 @@ public class Attention : Module<Tensor, long, Tensor>
         // Rotary position embeddings
         _rope = new RotaryEmbedding(_headDim, maxSeqLen, ropeBase);
         
+        // Value embeddings (optional, for ResFormer-style alternating layers)
+        if (useValueEmbedding)
+        {
+            _valueEmbedding = new ValueEmbedding(_headDim, maxSeqLen);
+        }
+        
         // Register modules
         RegisterComponents();
     }
@@ -115,6 +124,14 @@ public class Attention : Module<Tensor, long, Tensor>
         q = q.view(batchSize, seqLength, _nHead, _headDim);
         k = k.view(batchSize, seqLength, _nKvHead, _headDim);
         v = v.view(batchSize, seqLength, _nKvHead, _headDim);
+        
+        // Add value embeddings if enabled (ResFormer-style)
+        // This adds positional information directly to the value vectors
+        if (_valueEmbedding is not null)
+        {
+            var ve = _valueEmbedding.forward(v, seqLen);
+            v = v + ve;
+        }
         
         // Apply RoPE to Q and K
         q = _rope.forward(q, seqLen);
@@ -207,6 +224,7 @@ public class Attention : Module<Tensor, long, Tensor>
             _qNorm?.Dispose();
             _kNorm?.Dispose();
             _rope?.Dispose();
+            _valueEmbedding?.Dispose();
         }
         base.Dispose(disposing);
     }

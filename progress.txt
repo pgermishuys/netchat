@@ -509,3 +509,49 @@ Ready to proceed with Story 3.7: Implement Value Embeddings
 - Gated value embeddings for specific layers
 - Integration with transformer blocks
 
+## Story 3.7: Implement Value Embeddings - COMPLETED
+
+**Date:** 2026-02-05
+
+### What was implemented:
+
+1. **ValueEmbedding Module** (src/NanoChat.Core/Model/ValueEmbedding.cs)
+   - Gated value embedding mechanism with learned gate parameter
+   - Position-wise embeddings for sequence length up to maxSeqLen
+   - Gate uses sigmoid activation to keep values in [0, 1] range
+   - Supports both (batch, seqLen, nHead, headDim) and (batch, nHead, seqLen, headDim) tensor layouts
+
+2. **Integration with Attention** (src/NanoChat.Core/Model/Attention.cs)
+   - Added optional useValueEmbedding parameter
+   - Value embeddings added to value vectors after projection and reshaping
+   - Applied before RoPE on Q and K for proper positional encoding
+
+3. **Integration with TransformerBlock** (src/NanoChat.Core/Model/TransformerBlock.cs)
+   - Added useValueEmbedding parameter to enable alternating pattern
+   - Parameter passed through to Attention module
+
+4. **Comprehensive Test Suite** (tests/NanoChat.Core.Tests/ValueEmbeddingTests.cs)
+   - 11 test cases covering all functionality
+   - Tests for shape validation, gating mechanism, edge cases
+   - All 75 tests pass (64 existing + 11 new)
+
+### Architecture Details:
+
+- **Gating Mechanism**: `ve_output = sigmoid(gate) * embeddings[position]`
+- **Positional Embeddings**: Learned (maxSeqLen, headDim) tensor
+- **Initialization**: Embeddings ~ N(0, 0.02²), gate = 0
+- **Usage**: `v = v_proj(x) + value_embedding(seqLen)`
+
+### Updated:
+- docs/plan.md (marked Story 3.7 as complete)
+- All tests passing (75/75)
+
+### Next Steps:
+
+Ready to proceed with **Feature 4: GPT Model**
+- Story 4.1: Implement GPTConfig
+- Story 4.2: Implement GPT model shell  
+- Story 4.3: Implement forward pass
+- Story 4.4: Add softcap to logits
+- Story 4.5: Add sliding window support
+
