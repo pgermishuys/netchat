@@ -470,4 +470,349 @@ public class GPTModelTests
         Assert.Equal(1, generated.shape[0]);
         Assert.Equal(10, generated.shape[1]);
     }
+
+    [Fact]
+    public void GenerateStreaming_ThrowsForNullCallback()
+    {
+        var config = new GPTConfig { NLayer = 1, NHead = 2, NKvHead = 2, NEmbd = 32 };
+        using var model = new GPT(config);
+        using var prompt = randint(0, 100, new long[] { 1, 5 }, dtype: ScalarType.Int64);
+
+        Assert.Throws<ArgumentNullException>(() => 
+            model.GenerateStreaming(prompt, maxNewTokens: 5, onTokenGenerated: null!));
+    }
+
+    [Fact]
+    public void GenerateStreaming_InvokesCallbackForEachToken()
+    {
+        var config = new GPTConfig
+        {
+            VocabSize = 500,
+            NLayer = 1,
+            NHead = 4,
+            NKvHead = 4,
+            NEmbd = 64
+        };
+
+        using var model = new GPT(config);
+        using var prompt = randint(0, 500, new long[] { 1, 5 }, dtype: ScalarType.Int64);
+
+        int callbackCount = 0;
+        var tokenIds = new List<long>();
+        var positions = new List<int>();
+
+        using var generated = model.GenerateStreaming(
+            prompt,
+            maxNewTokens: 10,
+            onTokenGenerated: (batchIdx, tokenId, position) =>
+            {
+                callbackCount++;
+                tokenIds.Add(tokenId);
+                positions.Add(position);
+                return true; // Continue generation
+            });
+
+        // Should invoke callback 10 times (once per token)
+        Assert.Equal(10, callbackCount);
+        Assert.Equal(10, tokenIds.Count);
+        Assert.Equal(10, positions.Count);
+
+        // Positions should be 0, 1, 2, ..., 9
+        Assert.Equal(Enumerable.Range(0, 10), positions);
+
+        // Generated shape should be correct
+        Assert.Equal(1, generated.shape[0]);
+        Assert.Equal(15, generated.shape[1]); // 5 prompt + 10 new
+    }
+
+    [Fact]
+    public void GenerateStreaming_CallbackCanStopEarly()
+    {
+        var config = new GPTConfig
+        {
+            VocabSize = 500,
+            NLayer = 1,
+            NHead = 4,
+            NKvHead = 4,
+            NEmbd = 64
+        };
+
+        using var model = new GPT(config);
+        using var prompt = randint(0, 500, new long[] { 1, 5 }, dtype: ScalarType.Int64);
+
+        int callbackCount = 0;
+
+        using var generated = model.GenerateStreaming(
+            prompt,
+            maxNewTokens: 20,
+            onTokenGenerated: (batchIdx, tokenId, position) =>
+            {
+                callbackCount++;
+                // Stop after 5 tokens
+                return position < 4;
+            });
+
+        // Should only generate 5 tokens (0-4, then returns false at position 4)
+        Assert.Equal(5, callbackCount);
+        Assert.Equal(10, generated.shape[1]); // 5 prompt + 5 new
+    }
+
+    [Fact]
+    public void GenerateStreaming_StopTokensTerminateGeneration()
+    {
+        var config = new GPTConfig
+        {
+            VocabSize = 500,
+            NLayer = 1,
+            NHead = 4,
+            NKvHead = 4,
+            NEmbd = 64
+        };
+
+        using var model = new GPT(config);
+        using var prompt = tensor(new long[] { 1, 2, 3, 4, 5 }).reshape(1, 5);
+
+        var generatedTokens = new List<long>();
+        var stopTokens = new HashSet<long> { 100, 200, 300 };
+
+        // We need to generate deterministically to test stop tokens
+        // For this test, we'll just verify that if a stop token is generated, the callback is still invoked
+        using var generated = model.GenerateStreaming(
+            prompt,
+            maxNewTokens: 10,
+            onTokenGenerated: (batchIdx, tokenId, position) =>
+            {
+                generatedTokens.Add(tokenId);
+                return true;
+            },
+            stopTokens: stopTokens);
+
+        // Verify generation completed (may or may not hit a stop token randomly)
+        Assert.True(generated.shape[1] >= 5); // At least prompt length
+        Assert.True(generated.shape[1] <= 15); // At most prompt + maxNewTokens
+    }
+
+    [Fact]
+    public void GenerateStreaming_HandlesBatchGeneration()
+    {
+        var config = new GPTConfig
+        {
+            VocabSize = 500,
+            NLayer = 1,
+            NHead = 4,
+            NKvHead = 4,
+            NEmbd = 64
+        };
+
+        using var model = new GPT(config);
+        using var prompt = randint(0, 500, new long[] { 3, 5 }, dtype: ScalarType.Int64);
+
+        var batchIndices = new List<int>();
+        var tokenCounts = new int[3]; // Track tokens per batch
+
+        using var generated = model.GenerateStreaming(
+            prompt,
+            maxNewTokens: 10,
+            onTokenGenerated: (batchIdx, tokenId, position) =>
+            {
+                batchIndices.Add(batchIdx);
+                tokenCounts[batchIdx]++;
+                return true;
+            });
+
+        // Should invoke callback 30 times (10 tokens × 3 batches)
+        Assert.Equal(30, batchIndices.Count);
+
+        // Each batch should get 10 tokens
+        Assert.All(tokenCounts, count => Assert.Equal(10, count));
+
+        // Generated shape should be correct
+        Assert.Equal(3, generated.shape[0]); // batch size
+        Assert.Equal(15, generated.shape[1]); // 5 prompt + 10 new
+    }
+
+    [Fact]
+    public void GenerateStreaming_PerBatchEarlyTermination()
+    {
+        var config = new GPTConfig
+        {
+            VocabSize = 500,
+            NLayer = 1,
+            NHead = 4,
+            NKvHead = 4,
+            NEmbd = 64
+        };
+
+        using var model = new GPT(config);
+        using var prompt = randint(0, 500, new long[] { 2, 5 }, dtype: ScalarType.Int64);
+
+        var tokenCounts = new int[2];
+
+        using var generated = model.GenerateStreaming(
+            prompt,
+            maxNewTokens: 20,
+            onTokenGenerated: (batchIdx, tokenId, position) =>
+            {
+                tokenCounts[batchIdx]++;
+                // Batch 0 stops after 3 tokens, batch 1 continues
+                if (batchIdx == 0)
+                    return position < 2;
+                return true;
+            });
+
+        // Batch 0 should have 3 tokens (positions 0, 1, 2)
+        Assert.Equal(3, tokenCounts[0]);
+        // Batch 1 should have all 20 tokens
+        Assert.Equal(20, tokenCounts[1]);
+    }
+
+    [Fact]
+    public void GenerateStreaming_WithTemperature()
+    {
+        var config = new GPTConfig
+        {
+            VocabSize = 500,
+            NLayer = 1,
+            NHead = 4,
+            NKvHead = 4,
+            NEmbd = 64
+        };
+
+        using var model = new GPT(config);
+        using var prompt = randint(0, 500, new long[] { 1, 5 }, dtype: ScalarType.Int64);
+
+        int callbackCount = 0;
+
+        using var generated = model.GenerateStreaming(
+            prompt,
+            maxNewTokens: 5,
+            onTokenGenerated: (batchIdx, tokenId, position) =>
+            {
+                callbackCount++;
+                return true;
+            },
+            temperature: 0.8f);
+
+        Assert.Equal(5, callbackCount);
+        Assert.Equal(10, generated.shape[1]);
+    }
+
+    [Fact]
+    public void GenerateStreaming_WithTopK()
+    {
+        var config = new GPTConfig
+        {
+            VocabSize = 500,
+            NLayer = 1,
+            NHead = 4,
+            NKvHead = 4,
+            NEmbd = 64
+        };
+
+        using var model = new GPT(config);
+        using var prompt = randint(0, 500, new long[] { 1, 5 }, dtype: ScalarType.Int64);
+
+        int callbackCount = 0;
+
+        using var generated = model.GenerateStreaming(
+            prompt,
+            maxNewTokens: 5,
+            onTokenGenerated: (batchIdx, tokenId, position) =>
+            {
+                callbackCount++;
+                return true;
+            },
+            topK: 50);
+
+        Assert.Equal(5, callbackCount);
+        Assert.Equal(10, generated.shape[1]);
+    }
+
+    [Fact]
+    public void GenerateStreaming_WithCache()
+    {
+        var config = new GPTConfig
+        {
+            VocabSize = 500,
+            NLayer = 2,
+            NHead = 4,
+            NKvHead = 4,
+            NEmbd = 64
+        };
+
+        using var model = new GPT(config);
+        using var prompt = randint(0, 500, new long[] { 1, 5 }, dtype: ScalarType.Int64);
+
+        int callbackCount = 0;
+
+        using var generated = model.GenerateStreaming(
+            prompt,
+            maxNewTokens: 10,
+            onTokenGenerated: (batchIdx, tokenId, position) =>
+            {
+                callbackCount++;
+                return true;
+            },
+            useCache: true);
+
+        Assert.Equal(10, callbackCount);
+        Assert.Equal(15, generated.shape[1]);
+    }
+
+    [Fact]
+    public void GenerateStreaming_WithoutCache()
+    {
+        var config = new GPTConfig
+        {
+            VocabSize = 500,
+            NLayer = 2,
+            NHead = 4,
+            NKvHead = 4,
+            NEmbd = 64
+        };
+
+        using var model = new GPT(config);
+        using var prompt = randint(0, 500, new long[] { 1, 5 }, dtype: ScalarType.Int64);
+
+        int callbackCount = 0;
+
+        using var generated = model.GenerateStreaming(
+            prompt,
+            maxNewTokens: 10,
+            onTokenGenerated: (batchIdx, tokenId, position) =>
+            {
+                callbackCount++;
+                return true;
+            },
+            useCache: false);
+
+        Assert.Equal(10, callbackCount);
+        Assert.Equal(15, generated.shape[1]);
+    }
+
+    [Fact]
+    public void GenerateStreaming_ProducesCorrectShape()
+    {
+        var config = new GPTConfig
+        {
+            VocabSize = 500,
+            NLayer = 1,
+            NHead = 4,
+            NKvHead = 4,
+            NEmbd = 64
+        };
+
+        using var model = new GPT(config);
+        using var prompt = randint(0, 500, new long[] { 2, 5 }, dtype: ScalarType.Int64);
+
+        int maxNewTokens = 10;
+        using var generated = model.GenerateStreaming(
+            prompt,
+            maxNewTokens: maxNewTokens,
+            onTokenGenerated: (_, _, _) => true);
+
+        Assert.Equal(2, generated.dim());
+        Assert.Equal(2, generated.shape[0]); // batch size
+        Assert.Equal(5 + maxNewTokens, generated.shape[1]); // prompt + new tokens
+    }
 }

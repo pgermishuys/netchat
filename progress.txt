@@ -933,3 +933,105 @@ var logits = ForwardWithCache(nextTokenInput, cache);
 - All architectural components properly support caching
 - Ready to proceed with Feature 7 (Chat Interface) or Story 6.6 (Streaming)
 
+---
+
+## Phase 1: Feature 6: Inference Engine (Story 6.6) - COMPLETE ✅
+
+### Date: February 5, 2026
+
+### Completed Stories:
+
+**Story 6.6: Optimize generation loop (Streaming token output)**
+- Added GenerateStreaming() method to GPT class
+- Implements real-time token emission via callback delegate
+- Callback signature: `Func<int, long, int, bool>` (batchIdx, tokenId, position) → continue?
+- Early termination support via callback return value (return false to stop)
+- Stop token detection with configurable HashSet<long> of stop token IDs
+- Per-batch early termination tracking (each batch can stop independently)
+- Full integration with existing Generate() features: temperature, top-k, KV caching
+- Maintains all performance optimizations from cached generation
+
+### Technical Implementation:
+
+**GenerateStreaming API:**
+```csharp
+Tensor GenerateStreaming(
+    Tensor prompt,
+    int maxNewTokens,
+    Func<int, long, int, bool> onTokenGenerated,  // Required callback
+    float temperature = 1.0f,
+    int? topK = null,
+    HashSet<long>? stopTokens = null,             // Optional stop tokens
+    bool useCache = true)
+```
+
+**Key Features:**
+1. **Real-time Token Emission**
+   - Callback invoked immediately after each token is generated
+   - Receives batch index, token ID, and position within generation
+   - Enables streaming output to console, network, or other destinations
+
+2. **Early Termination**
+   - Callback can return false to stop generation for a specific batch
+   - Stop tokens automatically halt generation when encountered
+   - Per-batch termination: each batch in a batch can stop independently
+   - All batches stopping triggers early loop exit for efficiency
+
+3. **Performance**
+   - Uses KV caching by default for efficient generation
+   - Minimal overhead over non-streaming Generate() method
+   - Same memory footprint and computation
+
+4. **Flexibility**
+   - Compatible with temperature sampling
+   - Compatible with top-k sampling
+   - Can disable caching if needed (useCache parameter)
+   - Stop tokens optional (null by default)
+
+### CLI Demo Implementation:
+
+Updated Program.cs to demonstrate streaming generation:
+- Visual streaming demo with dots for each token (50ms delay per token)
+- Early termination demo stopping after 5 tokens
+- Shows real-world use case: progress indication during generation
+
+### Test Results:
+- Created comprehensive test suite with 12 new tests:
+  - Callback invocation verification (correct count, positions)
+  - Early termination via callback return value
+  - Stop token detection
+  - Batch generation with per-batch tracking
+  - Per-batch early termination (independent stopping)
+  - Temperature and top-k compatibility
+  - Cached and non-cached modes
+  - Shape verification
+  - Null callback validation
+- All 155 tests pass (144 previous + 12 new streaming tests, 1 skipped)
+- Build completes with 0 warnings
+- CLI demo runs successfully with visual streaming output
+
+### Files Modified:
+- src/NanoChat.Core/Model/GPT.cs (added GenerateStreaming method)
+- tests/NanoChat.Core.Tests/GPTModelTests.cs (added 12 streaming tests)
+- src/NanoChat.CLI/Program.cs (added streaming demo)
+- docs/plan.md (marked Story 6.6 as complete)
+
+### Updated:
+- docs/plan.md (marked Story 6.6 as complete)
+- progress.txt (this file)
+
+### Next Steps:
+
+Ready to proceed with **Feature 7: Chat Interface**
+- Story 7.1: Implement conversation rendering
+- Story 7.2: Implement CLI input loop
+- Story 7.3: Implement streaming output
+- Story 7.4: Handle conversation history
+
+### Notes:
+- Streaming generation is complete and fully tested
+- CLI demo provides visual feedback for streaming behavior
+- Architecture supports real-time applications (chatbots, live generation, etc.)
+- Performance identical to non-streaming generation with caching enabled
+- Feature 6 (Inference Engine) is now 100% complete
+

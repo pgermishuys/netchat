@@ -329,6 +329,177 @@ public class GPT : Module<Tensor, Tensor>
         return generated;
     }
 
+    /// <summary>
+    /// Generates text autoregressively from a prompt with streaming output via callback.
+    /// Tokens are emitted one at a time through the onTokenGenerated callback as they are produced.
+    /// </summary>
+    /// <param name="prompt">Initial token IDs of shape (batch, promptLen).</param>
+    /// <param name="maxNewTokens">Maximum number of new tokens to generate.</param>
+    /// <param name="onTokenGenerated">Callback invoked for each generated token. Receives (batchIndex, tokenId, position). Return false to stop generation early.</param>
+    /// <param name="temperature">Sampling temperature (default: 1.0).</param>
+    /// <param name="topK">Top-k sampling parameter (default: null, disabled).</param>
+    /// <param name="stopTokens">Optional set of token IDs that trigger early termination.</param>
+    /// <param name="useCache">Whether to use KV caching (default: true for better performance).</param>
+    /// <returns>Generated token IDs of shape (batch, promptLen + actualNewTokens).</returns>
+    public Tensor GenerateStreaming(
+        Tensor prompt,
+        int maxNewTokens,
+        Func<int, long, int, bool> onTokenGenerated,
+        float temperature = 1.0f,
+        int? topK = null,
+        HashSet<long>? stopTokens = null,
+        bool useCache = true)
+    {
+        if (prompt.dtype != ScalarType.Int64)
+            throw new ArgumentException($"Prompt must be int64, got {prompt.dtype}");
+
+        if (prompt.dim() != 2)
+            throw new ArgumentException($"Prompt must be 2D (batch, promptLen), got shape {prompt.shape}");
+
+        if (onTokenGenerated == null)
+            throw new ArgumentNullException(nameof(onTokenGenerated));
+
+        long batchSize = prompt.shape[0];
+        long promptLen = prompt.shape[1];
+
+        // Start with the prompt
+        var generated = prompt.clone();
+
+        // Track which batches have stopped (due to stop tokens or callback)
+        var stoppedBatches = new HashSet<int>();
+
+        using (no_grad())
+        {
+            // Create KV cache if enabled
+            KVCache? cache = null;
+            if (useCache)
+            {
+                cache = new KVCache(
+                    nLayers: _config.NLayer,
+                    nHeads: _config.NHead,
+                    headDim: _config.NEmbd / _config.NHead,
+                    batchSize: (int)batchSize,
+                    maxSeqLen: _config.SequenceLen
+                );
+            }
+
+            try
+            {
+                for (int i = 0; i < maxNewTokens; i++)
+                {
+                    // Stop if all batches have stopped
+                    if (stoppedBatches.Count == batchSize)
+                        break;
+
+                    long currentLen = generated.shape[1];
+
+                    // Prepare input for this step
+                    Tensor input;
+                    if (cache is not null && i > 0)
+                    {
+                        // With cache: only process the last token
+                        input = generated[TensorIndex.Colon, TensorIndex.Single(-1)].unsqueeze(-1);
+                    }
+                    else if (currentLen > _config.SequenceLen)
+                    {
+                        // Without cache or first iteration: truncate to context window if needed
+                        var startIdx = currentLen - _config.SequenceLen;
+                        input = generated[TensorIndex.Ellipsis, TensorIndex.Slice(startIdx)].alias();
+                        
+                        // Clear cache if we had to truncate (context window exceeded)
+                        if (cache is not null)
+                        {
+                            cache.Clear();
+                        }
+                    }
+                    else
+                    {
+                        input = generated.alias();
+                    }
+
+                    // Forward pass with optional caching
+                    using var logits = useCache ? ForwardWithCache(input, cache) : forward(input);
+                    input.Dispose();
+
+                    // Get logits for last token: (batch, vocabSize)
+                    using var lastLogits = logits[TensorIndex.Colon, TensorIndex.Single(-1), TensorIndex.Colon];
+
+                    // Apply temperature
+                    using var scaledLogits = lastLogits.div(temperature);
+
+                    // Sample next token
+                    Tensor nextToken;
+                    if (topK.HasValue)
+                    {
+                        // Top-k sampling (clamp k to vocab size)
+                        int k = Math.Min(topK.Value, (int)_config.VocabSize);
+                        var topKResult = scaledLogits.topk(k, dim: -1);
+                        var topKValues = topKResult.values;
+                        var topKIndices = topKResult.indexes;
+
+                        // Apply softmax to top-k values
+                        using var probs = functional.softmax(topKValues, dim: -1);
+
+                        // Sample from top-k distribution
+                        using var samples = probs.multinomial(1);
+
+                        // Map back to original indices
+                        nextToken = topKIndices.gather(dim: -1, index: samples);
+                        
+                        topKValues.Dispose();
+                        topKIndices.Dispose();
+                    }
+                    else
+                    {
+                        // Standard sampling
+                        using var probs = functional.softmax(scaledLogits, dim: -1);
+                        nextToken = probs.multinomial(1);
+                    }
+
+                    // Extract token IDs for each batch and invoke callback
+                    var tokenData = nextToken.data<long>().ToArray();
+                    for (int batchIdx = 0; batchIdx < batchSize; batchIdx++)
+                    {
+                        // Skip if this batch has already stopped
+                        if (stoppedBatches.Contains(batchIdx))
+                            continue;
+
+                        long tokenId = tokenData[batchIdx];
+                        int position = i; // Position within generated tokens (0-indexed)
+
+                        // Check for stop tokens
+                        if (stopTokens != null && stopTokens.Contains(tokenId))
+                        {
+                            stoppedBatches.Add(batchIdx);
+                            // Still invoke callback to let user know we stopped
+                            onTokenGenerated(batchIdx, tokenId, position);
+                            continue;
+                        }
+
+                        // Invoke callback - if it returns false, stop this batch
+                        bool continueGeneration = onTokenGenerated(batchIdx, tokenId, position);
+                        if (!continueGeneration)
+                        {
+                            stoppedBatches.Add(batchIdx);
+                        }
+                    }
+
+                    // Append to generated sequence: (batch, seqLen) + (batch, 1) -> (batch, seqLen+1)
+                    using var temp = generated;
+                    generated = cat(new[] { temp, nextToken }, dim: -1);
+                    nextToken.Dispose();
+                }
+            }
+            finally
+            {
+                // Clean up cache
+                cache?.Dispose();
+            }
+        }
+
+        return generated;
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
