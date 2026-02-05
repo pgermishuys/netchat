@@ -67,3 +67,112 @@ Ready to proceed with Phase 1, Feature 2: Tokenizer
 
 Commit: 35dd12e
 Message: "feat: complete Phase 1 - project foundation with TorchSharp integration"
+
+---
+
+## Phase 1: Feature 2 - Tokenizer - COMPLETE ✅
+
+### Date: February 5, 2026
+
+### Completed Stories:
+
+**Story 2.1: Create tokenizer interface**
+- Created ITokenizer interface in NanoChat.Core/Tokenizer/ITokenizer.cs
+- Interface includes Encode() and Decode() methods
+- Added properties for VocabSize, BosToken, and EosToken
+- Support for special tokens via allowedSpecial parameter
+
+**Story 2.2: Implement tiktoken-based tokenizer**
+- Implemented BpeTokenizer class with byte-level BPE encoding
+- Uses mergeable ranks dictionary for token merging
+- Implements proper BPE algorithm with pair merging
+- Handles UTF-8 encoding/decoding correctly
+- Custom ByteArrayComparer for efficient byte array dictionary operations
+
+**Story 2.3: Add special token support**
+- Created TokenizerFactory with nanochat-specific special tokens:
+  - <|bos|> (beginning of sequence)
+  - <|eos|> (end of sequence)
+  - <|user_start|>, <|user_end|>
+  - <|assistant_start|>, <|assistant_end|>
+  - <|system_start|>, <|system_end|>
+- Special tokens properly integrated into encoding/decoding flow
+- Support for custom special token sets
+
+**Story 2.4: Load nanochat tokenizer from disk**
+- Created TokenizerLoader with multiple format support:
+  - LoadFromTiktoken() for tiktoken-style text format
+  - LoadFromJson() for JSON format with base64-encoded ranks
+- Placeholder for future pickle format support
+- Handles invalid/malformed data gracefully
+
+**Story 2.5: Test against Python implementation**
+- Created comprehensive test suite with 10 tests:
+  - Basic encoding/decoding
+  - Round-trip encoding tests
+  - Special token handling
+  - Conversation format testing
+  - Unicode/emoji support
+  - Empty string handling
+- All tests pass successfully
+
+### Technical Implementation:
+
+**Architecture:**
+```
+ITokenizer (interface)
+    └── BpeTokenizer (implementation)
+        ├── Byte-level BPE encoding
+        ├── Special token support
+        └── UTF-8 text handling
+
+TokenizerFactory
+    └── Creates tokenizers with predefined special tokens
+
+TokenizerLoader
+    └── Loads tokenizer data from disk (tiktoken/JSON formats)
+```
+
+**Key Features:**
+- Full BPE implementation with proper merge ordering
+- Special token injection during encoding
+- Robust Unicode handling
+- Efficient byte array operations
+- Flexible loading from multiple formats
+
+### Test Results:
+- All 10 tokenizer tests pass
+- No build warnings
+- Proper round-trip encoding/decoding
+- Special token handling verified
+
+### Files Created:
+- src/NanoChat.Core/Tokenizer/ITokenizer.cs
+- src/NanoChat.Core/Tokenizer/BpeTokenizer.cs
+- src/NanoChat.Core/Tokenizer/TokenizerFactory.cs
+- src/NanoChat.Core/Tokenizer/TokenizerLoader.cs
+- tests/NanoChat.Core.Tests/TokenizerTests.cs
+
+### Files Removed:
+- src/NanoChat.Core/Class1.cs (replaced by tokenizer implementation)
+- tests/NanoChat.Core.Tests/UnitTest1.cs (replaced by TokenizerTests.cs)
+
+### Updated:
+- src/NanoChat.CLI/Program.cs (updated to demonstrate tokenizer functionality)
+- docs/plan.md (marked Feature 2 stories as complete)
+
+### Next Steps:
+
+Ready to proceed with Feature 3: Model Components
+- Story 3.1: Implement RMSNorm
+- Story 3.2: Implement Rotary Embeddings
+- Story 3.3: Implement Multi-Head Attention
+- Story 3.4: Implement GQA (Group-Query Attention)
+- Story 3.5: Implement MLP block
+- Story 3.6: Implement Transformer Block
+- Story 3.7: Implement Value Embeddings
+
+### Git Commit:
+
+Pending commit after this feature completion.
+

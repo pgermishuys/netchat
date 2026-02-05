@@ -72,11 +72,11 @@ Replace dependencies with own implementations in order of complexity:
 
 | Story | Description | Acceptance Criteria | Status |
 |-------|-------------|---------------------|--------|
-| 2.1 | Create tokenizer interface | `ITokenizer` with Encode/Decode | ⬜ |
-| 2.2 | Implement tiktoken-based tokenizer | Load mergeable_ranks, encode text | ⬜ |
-| 2.3 | Add special token support | Encode `<\|bos\|>`, `<\|user_start\|>`, etc. | ⬜ |
-| 2.4 | Load nanochat tokenizer from disk | Read `tokenizer.pkl` format | ⬜ |
-| 2.5 | Test against Python implementation | Same input → same token IDs | ⬜ |
+| 2.1 | Create tokenizer interface | `ITokenizer` with Encode/Decode | ✅ |
+| 2.2 | Implement tiktoken-based tokenizer | Load mergeable_ranks, encode text | ✅ |
+| 2.3 | Add special token support | Encode `<\|bos\|>`, `<\|user_start\|>`, etc. | ✅ |
+| 2.4 | Load nanochat tokenizer from disk | Read `tokenizer.pkl` format | ✅ |
+| 2.5 | Test against Python implementation | Same input → same token IDs | ✅ |
 
 ---
 
