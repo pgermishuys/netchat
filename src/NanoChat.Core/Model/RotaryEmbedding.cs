@@ -48,7 +48,7 @@ public class RotaryEmbedding : Module<Tensor, long, Tensor>
         // Shape: (dim/2,)
         var invFreq = tensor(
             Enumerable.Range(0, _dim / 2)
-                .Select(i => 1.0 / Math.Pow(_base, (2.0 * i) / _dim))
+                .Select(i => (float)(1.0 / Math.Pow(_base, (2.0 * i) / _dim)))
                 .ToArray()
         );
 

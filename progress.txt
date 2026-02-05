@@ -290,11 +290,85 @@ Message: "feat: implement RMSNorm layer normalization (Story 3.1)"
 ### Updated:
 - docs/plan.md (marked Story 3.2 as complete)
 
+### Git Commit:
+
+Commit: 8b12f94
+Message: "feat: implement Rotary Position Embeddings (RoPE) (Story 3.2)"
+
+---
+
+## Phase 1: Feature 3 - Model Components (Story 3.3)
+
+### Date: February 5, 2026
+
+### Completed Stories:
+
+**Story 3.3: Implement Multi-Head Attention**
+- Created Attention class in NanoChat.Core/Model/Attention.cs
+- Implements Multi-Head Causal Self-Attention with GQA support
+- Supports Group-Query Attention (GQA) where n_kv_head < n_head
+- Causal masking prevents attending to future tokens
+- QK normalization applied after RoPE (per nanochat spec)
+- Rotary position embeddings integrated
+- Optional sliding window attention support
+
+### Technical Implementation:
+
+**Class Structure:**
+- Inherits from TorchSharp's Module<Tensor, long, Tensor>
+- Q projection: nHead heads
+- K/V projections: nKvHead heads (supports GQA)
+- QK normalization via RMSNorm (applied after RoPE)
+- Rotary position embeddings for position encoding
+- Scaled dot-product attention with scaling factor: 1/sqrt(headDim)
+
+**Key Features:**
+- Full Multi-Head Attention (MHA) support
+- Group-Query Attention (GQA) with configurable K/V heads
+- Multi-Query Attention (MQA) when nKvHead = 1
+- Causal masking for autoregressive generation
+- Optional sliding window attention for local attention
+- Proper broadcasting for GQA (K/V head expansion)
+- Efficient matmul operations
+
+### Test Results:
+- Created comprehensive test suite with 13 tests:
+  - Valid parameter initialization
+  - Invalid parameter validation (nEmbd not divisible by nHead)
+  - Invalid parameter validation (nHead not divisible by nKvHead)
+  - GQA support verification
+  - Output shape verification (MHA)
+  - Output shape verification (GQA)
+  - Causal masking behavior
+  - Sliding window attention
+  - Multiple sequence lengths handling
+  - Zero input handling
+  - Single token handling
+  - Large batch processing
+  - Different head configurations (MHA, GQA, MQA)
+- All 38 tests pass (10 tokenizer + 6 RMSNorm + 9 RoPE + 13 Attention)
+- Build completes with 0 warnings
+
+### Files Created:
+- src/NanoChat.Core/Model/Attention.cs
+- tests/NanoChat.Core.Tests/AttentionTests.cs
+
+### Files Updated:
+- src/NanoChat.Core/Model/RotaryEmbedding.cs (fixed Float32 dtype consistency)
+
+### Bug Fixes:
+- Fixed RotaryEmbedding to use Float32 (float) instead of Float64 (double)
+  - Changed invFreq tensor creation to use float array
+  - Prevents dtype mismatch errors in matmul operations
+  - Ensures consistency across all tensor operations
+
+### Updated:
+- docs/plan.md (marked Story 3.3 as complete)
+
 ### Next Steps:
 
-Ready to proceed with Story 3.3: Implement Multi-Head Attention
-- Causal self-attention mechanism
-- Q, K, V projections
-- Scaled dot-product attention
-- Softmax and attention weights
+Ready to proceed with Story 3.4: Implement GQA (Group-Query Attention)
+- Note: GQA is already implemented in the Attention class
+- Story 3.4 can be marked as complete
+- Next real work: Story 3.5: Implement MLP block
 

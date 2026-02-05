@@ -88,8 +88,8 @@ Replace dependencies with own implementations in order of complexity:
 |-------|-------------|---------------------|--------|
 | 3.1 | Implement RMSNorm | `norm(x)` matches Python output | ✅ |
 | 3.2 | Implement Rotary Embeddings | Precompute cos/sin, apply to Q/K | ✅ |
-| 3.3 | Implement Multi-Head Attention | Causal self-attention works | ⬜ |
-| 3.4 | Implement GQA (Group-Query Attention) | n_kv_head < n_head works | ⬜ |
+| 3.3 | Implement Multi-Head Attention | Causal self-attention works | ✅ |
+| 3.4 | Implement GQA (Group-Query Attention) | n_kv_head < n_head works | ✅ |
 | 3.5 | Implement MLP block | ReLU² activation | ⬜ |
 | 3.6 | Implement Transformer Block | Attention + MLP + residuals | ⬜ |
 | 3.7 | Implement Value Embeddings | ResFormer-style alternating VE | ⬜ |
