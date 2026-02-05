@@ -177,4 +177,64 @@ Ready to proceed with Feature 3: Model Components
 Commit: 1cdeb0c
 Message: "feat: implement BPE tokenizer with special token support"
 
+---
+
+## Phase 1: Feature 3 - Model Components (Story 3.1)
+
+### Date: February 5, 2026
+
+### Completed Stories:
+
+**Story 3.1: Implement RMSNorm**
+- Created RMSNorm class in NanoChat.Core/Model/RMSNorm.cs
+- Implements Root Mean Square Layer Normalization without learnable parameters
+- Formula: RMSNorm(x) = x / sqrt(mean(x²) + eps)
+- Normalizes over the last dimension of input tensor
+- Configurable epsilon for numerical stability (default: 1e-6)
+
+### Technical Implementation:
+
+**Class Structure:**
+- Inherits from TorchSharp's Module<Tensor, Tensor>
+- No learnable parameters (matches nanochat's F.rms_norm())
+- Efficient tensor operations using TorchSharp
+- Proper disposal of resources
+
+**Key Features:**
+- Normalizes input tensors to RMS ≈ 1.0
+- Handles batched inputs correctly
+- Works with arbitrary tensor dimensions
+- Numerical stability with epsilon parameter
+
+### Test Results:
+- Created comprehensive test suite with 6 tests:
+  - Simple input normalization verification
+  - Batched input (independent normalization per sample)
+  - 3D input (last dimension normalization)
+  - Zero input handling
+  - RMS verification (output RMS ≈ 1.0)
+  - Epsilon parameter validation
+- All 16 tests pass (10 tokenizer + 6 RMSNorm)
+- Build completes with 0 warnings
+
+### Files Created:
+- src/NanoChat.Core/Model/RMSNorm.cs
+- tests/NanoChat.Core.Tests/RMSNormTests.cs
+
+### Files Removed:
+- verify_rmsnorm.py (temporary test file)
+
+### Updated:
+- docs/plan.md (marked Story 3.1 as complete)
+
+### Next Steps:
+
+Ready to proceed with Story 3.2: Implement Rotary Embeddings (RoPE)
+- Precompute cos/sin tables
+- Apply rotation to Q/K tensors
+- Base frequency: 10000
+
+### Git Commit:
+
+(To be added after commit)
 
