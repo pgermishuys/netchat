@@ -808,3 +808,115 @@ Ready to proceed with **Feature 6: Inference Engine**
 - Verification tools ensure correctness across platforms
 - Ready for inference implementation
 
+---
+
+## Phase 1: Feature 6: Inference Engine - IN PROGRESS 🟡
+
+### Date: February 5, 2026
+
+### Completed Stories:
+
+**Story 6.1: Implement naive generation (no cache)**
+- Generation method already implemented in GPT.cs (lines 138-228)
+- Naive approach: recomputes full forward pass for each token
+- Handles context window truncation automatically
+- Works correctly but not optimized for speed
+
+**Story 6.2: Implement temperature sampling**
+- Temperature parameter adjusts logit scaling before softmax
+- Higher temperature = more random, lower = more deterministic
+- Formula: `scaledLogits = lastLogits / temperature`
+- Integrated into Generate() method
+- Tests verify correct behavior (GPTModelTests.Generate_WithTemperature)
+
+**Story 6.3: Implement top-k sampling**
+- Top-k parameter filters to k most likely tokens
+- Applies softmax only to top-k candidates
+- Samples from filtered distribution
+- Falls back to standard sampling if topK is null
+- Tests verify correct behavior (GPTModelTests.Generate_WithTopK)
+
+**Story 6.4: Implement KV-Cache infrastructure**
+- Created KVCache class in NanoChat.Core/Model/KVCache.cs
+- Manages key-value tensors across all transformer layers
+- Supports incremental updates via Update() method
+- Returns aliases to prevent disposal issues
+- Validates batch size, head count, head dim, max seq length
+- 15 comprehensive tests all passing
+- **Note:** KVCache class created but not yet integrated into generation
+
+### Technical Implementation:
+
+**Generate Method (GPT.cs:145-228):**
+- Autoregressive text generation
+- Supports batch generation
+- Temperature and top-k sampling
+- Context window management
+- Proper tensor disposal
+
+**KVCache Design:**
+```csharp
+// Create cache for model
+var cache = new KVCache(
+    nLayers: config.NLayer,
+    nHeads: config.NHead, 
+    headDim: config.NEmbd / config.NHead,
+    batchSize: batchSize,
+    maxSeqLen: config.SequenceLen
+);
+
+// Update cache per layer
+var (cachedKeys, cachedValues) = cache.Update(layerIdx, newKeys, newValues);
+```
+
+**Key Features:**
+- Independent cache per layer
+- Efficient concatenation of new K/V with cached K/V
+- Automatic length tracking
+- Proper resource disposal
+- Returns aliases to prevent external disposal
+
+### Test Results:
+- All 145 tests pass (previous 130 + 15 new KVCache tests)
+- Build completes with 0 warnings
+- KVCache tests cover all edge cases
+
+### Files Created:
+- src/NanoChat.Core/Model/KVCache.cs
+- tests/NanoChat.Core.Tests/KVCacheTests.cs
+
+### Updated:
+- docs/plan.md (marked stories 6.1-6.4 as complete, 6.5 in progress)
+
+### Remaining Work:
+
+**Story 6.5: Integrate KV-Cache into generation (IN PROGRESS)**
+- Need to modify Attention.forward() to accept optional cache
+- Modify TransformerBlock.forward() to pass cache through
+- Update GPT.Generate() or create GenerateWithCache() method
+- Only compute Q,K,V for new tokens (not full sequence)
+- Use cached K,V for attention computation
+- This requires modifying the forward pass signatures
+
+**Story 6.6: Add streaming output**
+- Implement callback/delegate for streaming tokens as generated
+- Allow early termination via callback return value
+- Enable real-time display of generated text
+- Use IEnumerable<int> or async enumerable for streaming API
+
+### Next Steps:
+
+The infrastructure for KV-caching is complete. Next actions:
+1. Decide on integration approach:
+   - Option A: Modify Attention/TransformerBlock signatures to accept cache
+   - Option B: Create separate cached forward methods
+   - Option C: Complete Feature 7 (Chat Interface) and defer KV optimization
+2. Implement streaming generation API
+3. Create end-to-end chat application
+
+### Notes:
+- Generation works correctly without caching (stories 6.1-6.3 complete)
+- KVCache infrastructure is solid and well-tested (story 6.4 complete)
+- Integration requires architectural changes to forward pass
+- Consider user priorities: functional chat vs optimized inference
+
