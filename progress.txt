@@ -174,5 +174,7 @@ Ready to proceed with Feature 3: Model Components
 
 ### Git Commit:
 
-Pending commit after this feature completion.
+Commit: 1cdeb0c
+Message: "feat: implement BPE tokenizer with special token support"
+
 
