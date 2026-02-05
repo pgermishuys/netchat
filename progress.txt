@@ -236,5 +236,6 @@ Ready to proceed with Story 3.2: Implement Rotary Embeddings (RoPE)
 
 ### Git Commit:
 
-(To be added after commit)
+Commit: 45b8d43
+Message: "feat: implement RMSNorm layer normalization (Story 3.1)"
 
