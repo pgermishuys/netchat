@@ -116,10 +116,10 @@ Replace dependencies with own implementations in order of complexity:
 
 | Story | Description | Acceptance Criteria | Status |
 |-------|-------------|---------------------|--------|
-| 5.1 | Parse PyTorch checkpoint format | Read `.pt` file structure | ⬜ |
-| 5.2 | Map weight names to model | Handle naming differences | ⬜ |
-| 5.3 | Load weights into model | All parameters populated | ⬜ |
-| 5.4 | Verify loaded weights | Forward pass matches Python | ⬜ |
+| 5.1 | Parse PyTorch checkpoint format | Read `.pt` file structure | ✅ |
+| 5.2 | Map weight names to model | Handle naming differences | ✅ |
+| 5.3 | Load weights into model | All parameters populated | ✅ |
+| 5.4 | Verify loaded weights | Forward pass matches Python | ✅ |
 
 ---
 

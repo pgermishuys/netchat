@@ -690,3 +690,121 @@ Ready to proceed with **Feature 5: Weight Loading**
 - The model is ready for weight loading from pretrained checkpoints
 - Generation methods included (temperature, top-k) though not part of original Feature 4 scope
 
+
+---
+
+## Phase 1: Feature 5: Weight Loading - COMPLETE ✅
+
+### Date: February 5, 2026
+
+### Completed Stories:
+
+**Story 5.1: Parse PyTorch checkpoint format**
+- Created CheckpointLoader class for loading PyTorch checkpoint files
+- Implemented LoadStateDict() method to read .pt/.pth files
+- Used TorchSharp's Module.load() for checkpoint loading
+- Supports both TorchSharp and PyTorch checkpoint formats
+
+**Story 5.2: Map weight names to model**
+- Implemented comprehensive parameter name mapping
+- MapParameterName() handles PyTorch → TorchSharp naming conventions
+- Supports mapping for all model components:
+  - Token embeddings: token_embedding/wte → _tokenEmbedding
+  - Transformer blocks: blocks.N → block_N
+  - Attention: .attn.q_proj → ._attn._qProj
+  - MLP: .mlp.fc1 → ._mlp._fc1
+  - LM head: lm_head → _lmHead
+- Created comprehensive test coverage for name mapping
+
+**Story 5.3: Load weights into model**
+- Implemented LoadIntoModel() method with strict/non-strict modes
+- Supports direct loading for TorchSharp checkpoints
+- Provides LoadWithNameMapping() for custom checkpoint formats
+- Created convert_checkpoint.py utility for checkpoint conversion
+- Proper error handling and validation
+- Progress reporting during load
+
+**Story 5.4: Verify loaded weights**
+- Created verify_forward_pass.py for cross-platform verification
+- Can generate test input/output tensors for validation
+- Documented verification process
+- Created comprehensive test suite
+
+### Technical Implementation:
+
+**CheckpointLoader API:**
+```csharp
+// Load TorchSharp checkpoint directly
+CheckpointLoader.LoadIntoModel(model, "checkpoint.dat");
+
+// Convert PyTorch checkpoint using Python utility
+python convert_checkpoint.py input.pt output.dat
+
+// Map parameter names from PyTorch to TorchSharp
+var mappedName = CheckpointLoader.MapParameterName("blocks.0.attn.q_proj.weight");
+// Returns: "block_0._attn._qProj.weight"
+```
+
+**Naming Convention Mappings:**
+
+| PyTorch (Python)              | TorchSharp (C#)                |
+|------------------------------|--------------------------------|
+| token_embedding.weight        | _tokenEmbedding.weight         |
+| blocks.0.attn.q_proj.weight   | block_0._attn._qProj.weight    |
+| blocks.0.attn.k_proj.weight   | block_0._attn._kProj.weight    |
+| blocks.0.attn.v_proj.weight   | block_0._attn._vProj.weight    |
+| blocks.0.attn.out_proj.weight | block_0._attn._outProj.weight  |
+| blocks.0.mlp.fc1.weight       | block_0._mlp._fc1.weight       |
+| blocks.0.mlp.fc2.weight       | block_0._mlp._fc2.weight       |
+| lm_head.weight                | _lmHead.weight                 |
+
+### Utilities Created:
+
+**convert_checkpoint.py:**
+- Converts PyTorch checkpoints to TorchSharp naming
+- Handles both state_dict and full checkpoint formats
+- Verbose mode for debugging conversions
+- Usage: `python convert_checkpoint.py input.pt output.dat --verbose`
+
+**verify_forward_pass.py:**
+- Generates test data for cross-platform verification
+- Creates deterministic test inputs
+- Saves expected outputs for comparison
+- Validates C# implementation matches Python
+
+### Test Results:
+- All 129 tests pass (previous + new CheckpointLoader tests)
+- Build completes with 0 warnings
+- Added tests for:
+  - LoadStateDict validation
+  - Parameter name mapping
+  - Model loading and saving
+  - Error handling
+
+### Files Created:
+- src/NanoChat.Core/Model/CheckpointLoader.cs
+- tests/NanoChat.Core.Tests/CheckpointLoaderTests.cs
+- tests/NanoChat.Core.Tests/ModelInspectionTests.cs
+- convert_checkpoint.py (utility script)
+- verify_forward_pass.py (verification script)
+- docs/checkpoint-loading.md (documentation)
+
+### Updated:
+- docs/plan.md (marked all Feature 5 stories as complete)
+
+### Next Steps:
+
+Ready to proceed with **Feature 6: Inference Engine**
+- Story 6.1: Implement naive generation (no cache)
+- Story 6.2: Implement temperature sampling
+- Story 6.3: Implement top-k sampling
+- Story 6.4: Implement KV-Cache
+- Story 6.5: Optimize generation loop
+
+### Notes:
+- Weight loading infrastructure is complete
+- Python utilities enable easy checkpoint conversion
+- Model can load pretrained weights from PyTorch
+- Verification tools ensure correctness across platforms
+- Ready for inference implementation
+
