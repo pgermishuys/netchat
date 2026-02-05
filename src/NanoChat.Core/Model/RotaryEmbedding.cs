@@ -83,6 +83,18 @@ public class RotaryEmbedding : Module<Tensor, long, Tensor>
     /// <returns>Rotated tensor of same shape as input</returns>
     public override Tensor forward(Tensor x, long seqLen)
     {
+        return ForwardWithOffset(x, 0, seqLen);
+    }
+    
+    /// <summary>
+    /// Apply rotary embeddings to input tensor with position offset (for KV caching)
+    /// </summary>
+    /// <param name="x">Input tensor of shape (batch, seqLen, nHeads, headDim)</param>
+    /// <param name="positionOffset">Starting position offset (for cached tokens)</param>
+    /// <param name="totalSeqLen">Total sequence length including cached tokens</param>
+    /// <returns>Rotated tensor of same shape as input</returns>
+    public Tensor ForwardWithOffset(Tensor x, long positionOffset, long totalSeqLen)
+    {
         if (_cosCache is null)
         {
             throw new InvalidOperationException("Cosine cache not initialized");
@@ -92,12 +104,14 @@ public class RotaryEmbedding : Module<Tensor, long, Tensor>
             throw new InvalidOperationException("Sine cache not initialized");
         }
 
-        // Get cos and sin for the current sequence length
-        // Shape: (seqLen, headDim)
-        var cos = _cosCache[TensorIndex.Slice(0, seqLen)];
-        var sin = _sinCache[TensorIndex.Slice(0, seqLen)];
+        var inputSeqLen = x.shape[1];
+        
+        // Get cos and sin for the positions [positionOffset, positionOffset + inputSeqLen)
+        // Shape: (inputSeqLen, headDim)
+        var cos = _cosCache[TensorIndex.Slice(positionOffset, positionOffset + inputSeqLen)];
+        var sin = _sinCache[TensorIndex.Slice(positionOffset, positionOffset + inputSeqLen)];
 
-        // Reshape for broadcasting: (1, seqLen, 1, headDim)
+        // Reshape for broadcasting: (1, inputSeqLen, 1, headDim)
         cos = cos.unsqueeze(0).unsqueeze(2);
         sin = sin.unsqueeze(0).unsqueeze(2);
 

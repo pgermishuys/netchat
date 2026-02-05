@@ -102,10 +102,29 @@ public class TransformerBlock : Module<Tensor, long, Tensor?, Tensor>
     /// <returns>Output tensor of shape (batch, seqLen, nEmbd)</returns>
     public override Tensor forward(Tensor x, long seqLen, Tensor? x0 = null)
     {
+        return ForwardWithCache(x, seqLen, x0, null, -1);
+    }
+    
+    /// <summary>
+    /// Apply transformer block to input tensor with optional KV caching
+    /// </summary>
+    /// <param name="x">Input tensor of shape (batch, seqLen, nEmbd)</param>
+    /// <param name="seqLen">Total sequence length including cached tokens (used for RoPE)</param>
+    /// <param name="x0">Initial input x0 for ResFormer-style residuals. If null, x0_lambda is ignored</param>
+    /// <param name="cache">Optional KV cache for efficient autoregressive generation</param>
+    /// <param name="layerIdx">Layer index for cache lookup (required if cache is provided)</param>
+    /// <returns>Output tensor of shape (batch, seqLen, nEmbd)</returns>
+    public Tensor ForwardWithCache(
+        Tensor x, 
+        long seqLen, 
+        Tensor? x0 = null, 
+        KVCache? cache = null, 
+        int layerIdx = -1)
+    {
         // Attention sub-layer with pre-normalization and residual
         // x1 = x + residLambda * attention(norm(x))
         var attnInput = _attnNorm.forward(x);
-        var attnOutput = _attn.forward(attnInput, seqLen);
+        var (attnOutput, _, _) = _attn.ForwardWithCache(attnInput, seqLen, cache, layerIdx);
         var x1 = x + _residLambda * attnOutput;
 
         // Add ResFormer-style x0 residual if provided

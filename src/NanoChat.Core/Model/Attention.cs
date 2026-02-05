@@ -108,6 +108,26 @@ public class Attention : Module<Tensor, long, Tensor>
     /// <returns>Output tensor of shape (batch, seqLen, nEmbd)</returns>
     public override Tensor forward(Tensor x, long seqLen)
     {
+        return ForwardWithCache(x, seqLen, null, -1).output;
+    }
+    
+    /// <summary>
+    /// Apply attention to input tensor with optional KV caching for inference optimization.
+    /// </summary>
+    /// <param name="x">Input tensor of shape (batch, seqLen, nEmbd)</param>
+    /// <param name="seqLen">Total sequence length including cached tokens (used for RoPE position encoding)</param>
+    /// <param name="cache">Optional KV cache for efficient autoregressive generation</param>
+    /// <param name="layerIdx">Layer index for cache lookup (required if cache is provided)</param>
+    /// <returns>Tuple of (output, keys, values) where keys and values are before GQA expansion for caching</returns>
+    public (Tensor output, Tensor keys, Tensor values) ForwardWithCache(
+        Tensor x, 
+        long seqLen, 
+        KVCache? cache = null, 
+        int layerIdx = -1)
+    {
+        if (cache is not null && layerIdx < 0)
+            throw new ArgumentException("layerIdx must be provided when cache is not null");
+        
         var batchSize = x.shape[0];
         var seqLength = x.shape[1];
         
@@ -134,8 +154,21 @@ public class Attention : Module<Tensor, long, Tensor>
         }
         
         // Apply RoPE to Q and K
-        q = _rope.forward(q, seqLen);
-        k = _rope.forward(k, seqLen);
+        // When using cache: seqLen is TOTAL length (cached + new), seqLength is NEW tokens only
+        // We need to apply RoPE for positions [cacheLen, seqLen)
+        long cacheLen = cache?.CacheLength ?? 0;
+        if (cacheLen > 0)
+        {
+            // With cache: apply RoPE with position offset
+            q = _rope.ForwardWithOffset(q, cacheLen, seqLen);
+            k = _rope.ForwardWithOffset(k, cacheLen, seqLen);
+        }
+        else
+        {
+            // No cache: apply RoPE normally for positions [0:seqLen]
+            q = _rope.forward(q, seqLen);
+            k = _rope.forward(k, seqLen);
+        }
         
         // Apply QK normalization (after RoPE, as per nanochat spec)
         // Normalize over the head dimension (last dim)
@@ -146,41 +179,65 @@ public class Attention : Module<Tensor, long, Tensor>
         // Q: (batch, nHead, seqLen, headDim)
         // K, V: (batch, nKvHead, seqLen, headDim)
         q = q.transpose(1, 2);
-        k = k.transpose(1, 2);
-        v = v.transpose(1, 2);
+        var kTransposed = k.transpose(1, 2);
+        var vTransposed = v.transpose(1, 2);
+        
+        // Store K and V before GQA expansion for caching
+        // These are in (batch, nKvHead, newSeqLen, headDim) format
+        var kForCache = kTransposed.clone();
+        var vForCache = vTransposed.clone();
+        
+        // Update or retrieve from cache if provided
+        if (cache is not null)
+        {
+            var (cachedK, cachedV) = cache.Update(layerIdx, kForCache, vForCache);
+            kTransposed.Dispose();
+            vTransposed.Dispose();
+            kTransposed = cachedK;
+            vTransposed = cachedV;
+            
+            // Update seqLength to reflect total cached length
+            seqLength = kTransposed.shape[2];
+        }
         
         // Handle GQA: expand K and V to match Q's number of heads
+        var kExpanded = kTransposed;
+        var vExpanded = vTransposed;
+        
         if (_nKvHead < _nHead)
         {
             var nRep = _nHead / _nKvHead;
             // Repeat each KV head nRep times
             // (batch, nKvHead, seqLen, headDim) -> (batch, nKvHead, nRep, seqLen, headDim)
-            k = k.unsqueeze(2).expand(new long[] { batchSize, _nKvHead, nRep, seqLength, _headDim });
-            v = v.unsqueeze(2).expand(new long[] { batchSize, _nKvHead, nRep, seqLength, _headDim });
+            kExpanded = kTransposed.unsqueeze(2).expand(new long[] { batchSize, _nKvHead, nRep, seqLength, _headDim });
+            vExpanded = vTransposed.unsqueeze(2).expand(new long[] { batchSize, _nKvHead, nRep, seqLength, _headDim });
             
             // Reshape to (batch, nHead, seqLen, headDim)
-            k = k.reshape(batchSize, _nHead, seqLength, _headDim);
-            v = v.reshape(batchSize, _nHead, seqLength, _headDim);
+            kExpanded = kExpanded.reshape(batchSize, _nHead, seqLength, _headDim);
+            vExpanded = vExpanded.reshape(batchSize, _nHead, seqLength, _headDim);
         }
         
         // Compute attention scores
-        // (batch, nHead, seqLen, headDim) @ (batch, nHead, headDim, seqLen)
-        // -> (batch, nHead, seqLen, seqLen)
-        var scores = matmul(q, k.transpose(-2, -1)) * _scale;
+        // Q: (batch, nHead, queryLen, headDim) 
+        // K: (batch, nHead, seqLen, headDim)
+        // scores: (batch, nHead, queryLen, seqLen)
+        var queryLen = q.shape[2];
+        var scores = matmul(q, kExpanded.transpose(-2, -1)) * _scale;
         
         // Apply causal mask: prevent attending to future positions
         // Create a mask where mask[i, j] = -inf if i < j (position i cannot attend to position j > i)
-        var causalMask = ones(seqLength, seqLength, dtype: x.dtype, device: x.device)
-            .tril()  // Lower triangular matrix (1s on and below diagonal)
+        // When using cache, queryLen might be 1 (generating single token) but seqLen includes all cached tokens
+        var causalMask = ones(queryLen, seqLength, dtype: x.dtype, device: x.device)
+            .tril(diagonal: seqLength - queryLen)  // Allow attending to all past + current position
             .log();  // Convert 1 -> 0, 0 -> -inf
         
         // Apply sliding window mask if specified
         if (_windowSize.HasValue)
         {
             // Create a band matrix: only allow attention within window
-            var windowMask = ones(seqLength, seqLength, dtype: x.dtype, device: x.device)
+            var windowMask = ones(queryLen, seqLength, dtype: x.dtype, device: x.device)
                 .triu(-_windowSize.Value)  // Upper triangular with offset
-                .tril()  // Lower triangular
+                .tril(diagonal: seqLength - queryLen)  // Lower triangular
                 .log();
             
             // Combine causal and window masks (take maximum to keep valid positions)
@@ -191,26 +248,26 @@ public class Attention : Module<Tensor, long, Tensor>
         scores = scores + causalMask;
         
         // Apply softmax to get attention weights
-        // (batch, nHead, seqLen, seqLen)
+        // (batch, nHead, queryLen, seqLen)
         var attnWeights = softmax(scores, dim: -1);
         
         // Apply attention weights to values
-        // (batch, nHead, seqLen, seqLen) @ (batch, nHead, seqLen, headDim)
-        // -> (batch, nHead, seqLen, headDim)
-        var output = matmul(attnWeights, v);
+        // (batch, nHead, queryLen, seqLen) @ (batch, nHead, seqLen, headDim)
+        // -> (batch, nHead, queryLen, headDim)
+        var output = matmul(attnWeights, vExpanded);
         
         // Transpose back and reshape
-        // (batch, nHead, seqLen, headDim) -> (batch, seqLen, nHead, headDim)
+        // (batch, nHead, queryLen, headDim) -> (batch, queryLen, nHead, headDim)
         output = output.transpose(1, 2);
         
         // Concatenate heads
-        // (batch, seqLen, nHead, headDim) -> (batch, seqLen, nHead * headDim)
-        output = output.contiguous().view(batchSize, seqLength, _nHead * _headDim);
+        // (batch, queryLen, nHead, headDim) -> (batch, queryLen, nHead * headDim)
+        output = output.contiguous().view(batchSize, queryLen, _nHead * _headDim);
         
         // Final output projection
         output = _outProj.forward(output);
         
-        return output;
+        return (output, kForCache, vForCache);
     }
 
     protected override void Dispose(bool disposing)

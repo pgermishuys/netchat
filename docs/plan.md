@@ -133,7 +133,7 @@ Replace dependencies with own implementations in order of complexity:
 | 6.2 | Implement temperature sampling | Adjustable randomness | ✅ |
 | 6.3 | Implement top-k sampling | Filter low-probability tokens | ✅ |
 | 6.4 | Implement KV-Cache | KVCache class with tests | ✅ |
-| 6.5 | Integrate KV-Cache into generation | Cached inference works | 🟡 |
+| 6.5 | Integrate KV-Cache into generation | Cached inference works | ✅ |
 | 6.6 | Optimize generation loop | Streaming token output | ⬜ |
 
 ---
